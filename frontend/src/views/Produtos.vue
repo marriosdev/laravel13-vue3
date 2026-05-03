@@ -15,9 +15,11 @@ const confirmDialog = ref(false)
 const itemToDelete = ref(null)
 const saving = ref(false)
 const form = ref({
+  id: null,
   nome: '',
   preco_venda: ''
 })
+const isEditing = ref(false)
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)
@@ -36,13 +38,38 @@ const fetchProdutos = async () => {
   }
 }
 
+const openAddDialog = () => {
+  resetForm()
+  dialog.value = true
+}
+
+const editProduto = (produto) => {
+  isEditing.value = true
+  form.value = {
+    id: produto.id,
+    nome: produto.nome,
+    preco_venda: produto.preco_venda
+  }
+  dialog.value = true
+}
+
+const resetForm = () => {
+  form.value = { id: null, nome: '', preco_venda: '' }
+  isEditing.value = false
+}
+
 const saveProduto = async () => {
   try {
     saving.value = true
-    await ProdutoService.create(form.value)
-    notifySuccess("Produto salvo com sucesso!")
+    if (isEditing.value) {
+      await ProdutoService.update(form.value.id, form.value)
+      notifySuccess("Produto atualizado com sucesso!")
+    } else {
+      await ProdutoService.create(form.value)
+      notifySuccess("Produto salvo com sucesso!")
+    }
     dialog.value = false
-    form.value = { nome: '', preco_venda: '' }
+    resetForm()
     fetchProdutos()
   } catch (error) {
     console.error("Erro ao salvar produto", error)
@@ -83,7 +110,7 @@ onMounted(() => {
   <div>
     <div class="d-flex justify-space-between align-center mb-4">
       <h2>Produtos</h2>
-      <v-btn color="primary" @click="dialog = true" prepend-icon="mdi-plus">Novo Produto</v-btn>
+      <v-btn color="primary" @click="openAddDialog" prepend-icon="mdi-plus">Novo Produto</v-btn>
     </div>
 
     <v-card>
@@ -123,6 +150,9 @@ onMounted(() => {
               </v-chip>
             </td>
             <td>
+              <v-btn icon color="primary" variant="text" size="small" @click="editProduto(produto)" title="Editar">
+                <v-icon>mdi-pencil</v-icon>
+              </v-btn>
               <v-btn icon color="error" variant="text" size="small" @click="confirmDelete(produto.id)" title="Excluir">
                 <v-icon>mdi-delete</v-icon>
               </v-btn>
@@ -133,18 +163,16 @@ onMounted(() => {
     </v-card>
 
     <div class="mt-4">
-      <v-pagination
-        v-model="page"
-        :length="totalPages"
-        @update:model-value="fetchProdutos"
-        color="primary"
-      ></v-pagination>
+      <v-pagination v-model="page" :length="totalPages" @update:model-value="fetchProdutos"
+        color="primary"></v-pagination>
     </div>
 
-    <v-dialog v-model="dialog" max-width="500px">
+    <v-dialog v-model="dialog" max-width="500px" @update:model-value="(val) => !val && resetForm()">
+      <template v-slot:activator="{ props }">
+      </template>
       <v-card>
         <v-card-title>
-          <span class="text-h5">Cadastrar Produto</span>
+          <span class="text-h5">{{ isEditing ? 'Editar Produto' : 'Cadastrar Produto' }}</span>
         </v-card-title>
         <v-card-text>
           <v-container>
